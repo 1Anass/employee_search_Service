@@ -1,4 +1,8 @@
 from app.models.employee import Employee
+from io import BytesIO
+from typing import Optional
+import matplotlib.pyplot as plt
+from fastapi.responses import StreamingResponse
 
 def get_all_by_name(name, data):
     """
@@ -47,3 +51,51 @@ def get_all_by_name(name, data):
             ))
     
     return results
+
+def get_wage_distribution(company_name: str, data: dict, country: Optional[str] = None) -> BytesIO:
+    """
+    Generates a wage distribution plot for the specified company and returns it as a PNG image.
+    
+    Args:
+        company_name (str): The name of the company.
+        data (dict): Dictionary containing employee data for UK and US.
+        country (Optional[str]): Country filter ('UK' or 'US'). If None, use data from both countries.
+    
+    Returns:
+        BytesIO: A BytesIO object containing the PNG image of the wage distribution.
+    """
+    # Validate country parameter
+    if country and country not in ["UK", "US"]:
+        raise ValueError("Country must be 'UK' or 'US'.")
+
+    # Filter data by company name and country
+    salaries = []
+    if country:
+        # Use only the data from the specified country
+        if country in data:
+            df = data[country]
+            filtered_df = df[df['company_name'].str.lower() == company_name.lower()]
+            salaries = filtered_df['salary'].tolist()
+    else:
+        # Use data from both UK and US
+        for country_df in data.values():
+            filtered_df = country_df[country_df['company_name'].str.lower() == company_name.lower()]
+            salaries.extend(filtered_df['salary'].tolist())
+    
+    if not salaries:
+        raise ValueError("No salary data found for the specified company and country.")
+
+    # Create the histogram plot
+    plt.figure(figsize=(10, 6))
+    plt.hist(salaries, bins=10, color='skyblue', edgecolor='black')
+    plt.title(f'Wage Distribution for {company_name}')
+    plt.xlabel('Salary')
+    plt.ylabel('Frequency')
+
+    # Save the plot to a BytesIO object
+    buf = BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    plt.close()
+
+    return buf
