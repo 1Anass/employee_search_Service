@@ -13,11 +13,21 @@ def get_all_by_name(name, data):
     """
     results = []
     name = name.lower()
-    
+    name_parts = name.split()
+
     for country, df in data.items():
-        # Search by first or last name for single-word input
-        filtered = df[(df['first_name'].str.lower() == name) | (df['last_name'].str.lower() == name)]
-        
+        if len(name_parts) == 1:
+            # Single-word input: match either first_name or last_name
+            filtered = df[(df['first_name'].str.lower() == name) | (df['last_name'].str.lower() == name)]
+        else:
+            # Multiple-word input: match last word with last_name, and the rest with first_name
+            first_name_part = " ".join(name_parts[:-1])
+            last_name_part = name_parts[-1]
+            filtered = df[
+                (df['first_name'].str.lower() == first_name_part) & 
+                (df['last_name'].str.lower() == last_name_part)
+            ]
+
         for _, row in filtered.iterrows():
             # Construct country-specific address and phone
             address = (f"{row['address']}, {row['city']}, "
@@ -35,4 +45,5 @@ def get_all_by_name(name, data):
                 email=row['email'],
                 salary=row['salary']
             ))
+    
     return results
